@@ -1154,10 +1154,10 @@ static void paint_overlay(HWND hwnd) {
         double bpm = (avg_dur > 0) ? (60.0 / avg_dur) : 0;
         double speed = bpm * (1.7 / 117.0);
         swprintf(bpm_hint, 64, L"BPM: %.0f (%.2f m/s)", bpm, speed);
-        draw_text_color(hdc, g_app.f_status_ov, bpm_hint,
+        draw_text_color(hdc, g_app.f_cfg_hint, bpm_hint,
                         10, y, C_ACCENT, TA_LEFT | TA_TOP);
     } else {
-        draw_text_color(hdc, g_app.f_status_ov, L"BPM: ---",
+        draw_text_color(hdc, g_app.f_cfg_hint, L"BPM: ---",
                         10, y, C_DIM, TA_LEFT | TA_TOP);
     }
 
