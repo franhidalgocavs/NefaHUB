@@ -1145,6 +1145,22 @@ static void paint_overlay(HWND hwnd) {
     draw_text_color(hdc, g_app.f_clock_ov, clock_buf,
                     55, y, clock_fg, TA_LEFT | TA_TOP);
 
+    /* ── BPM Counter ────────────────────────────────────── */
+    y += 50;
+    wchar_t bpm_hint[64];
+    if (g_app.bpm_tap_count >= 2) {
+        double total_dur = g_app.bpm_taps[g_app.bpm_tap_count - 1] - g_app.bpm_taps[0];
+        double avg_dur = total_dur / (g_app.bpm_tap_count - 1);
+        double bpm = (avg_dur > 0) ? (60.0 / avg_dur) : 0;
+        double speed = bpm * (1.7 / 117.0);
+        swprintf(bpm_hint, 64, L"BPM: %.0f (%.2f m/s)", bpm, speed);
+        draw_text_color(hdc, g_app.f_status_ov, bpm_hint,
+                        10, y, C_ACCENT, TA_LEFT | TA_TOP);
+    } else {
+        draw_text_color(hdc, g_app.f_status_ov, L"BPM: ---",
+                        10, y, C_DIM, TA_LEFT | TA_TOP);
+    }
+
     /* Blit */
     BitBlt(hdc_screen, 0, 0, cw, ch, hdc, 0, 0, SRCCOPY);
     SelectObject(hdc, old_bmp);
