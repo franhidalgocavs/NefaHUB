@@ -1,0 +1,23 @@
+{
+  "window_x": 2,
+  "window_y": 1,
+  "default_map_idx": 0,
+  "default_hunt_idx": 2,
+  "cursed_mod": 20,
+  "time_baja_chico": 15,
+  "time_baja_mediano": 30,
+  "time_baja_grande": 40,
+  "time_media_chico": 20,
+  "time_media_mediano": 40,
+  "time_media_grande": 50,
+  "time_alta_chico": 30,
+  "time_alta_mediano": 50,
+  "time_alta_grande": 60,
+  "key_0": 49,
+  "key_1": 50,
+  "key_2": 51,
+  "key_3": 112,
+  "key_4": 113,
+  "key_5": 114,
+  "key_6": 120
+}
