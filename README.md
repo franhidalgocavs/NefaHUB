@@ -13,7 +13,7 @@ No requiere instalar nada extra ni descargar dependencias.
 1. Descarga y ejecuta el archivo `nefahub.exe` **como Administrador** (es necesario para poder capturar los atajos de teclado globales mientras juegas).
    > [!WARNING]
    > Al no contar con un certificado de firma de código digital (que son de pago), es muy probable que Windows Defender (SmartScreen) te muestre una pantalla azul indicando que la aplicación es desconocida o "insegura". Haz clic en **"Más información"** y luego en **"Ejecutar de todas formas"**.
-2. Configura tu juego en **Ventana sin bordes (Borderless Windowed)** para poder disfrutar del overlay transparente flotando por encima de la pantalla.
+
 
 ### Opción 2: Ejecutar desde el código fuente Python (`.py`)
 Si prefieres correr o explorar el código fuente original en Python:
