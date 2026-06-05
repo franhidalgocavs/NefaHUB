@@ -122,6 +122,13 @@ class NefaHUBApp:
         self._tick()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.cfg.beep_thread("welcome")
+        
+        # Iniciar en modo Overlay por defecto
+        self.view_mode = 2
+        self.root.withdraw()
+        self.overlay.deiconify()
+        self.overlay.lift()
+        self._set_clickthrough(self.overlay)
 
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     # PERSISTENCE
@@ -271,8 +278,6 @@ class NefaHUBApp:
     # CONFIG LOGIC
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     def _cycle_map(self):
-        if self.cooldown_active:
-            return
         old_total = self.hunt_total
         self.map_idx = (self.map_idx + 1) % len(MAP_CYCLE)
         self.cfg.beep_thread("config")
@@ -281,6 +286,9 @@ class NefaHUBApp:
         if self.hunt_active:
             diff = self.hunt_total - old_total
             self.hunt_time += diff
+        elif self.cooldown_active:
+            diff = self.hunt_total - old_total
+            self.cooldown_time -= diff
 
     def _toggle_cursed(self):
         self.is_cursed = not self.is_cursed
@@ -293,7 +301,7 @@ class NefaHUBApp:
                 self.hunt_time -= self.cursed_mod
             self._recalc()
             color = self.cfg.get_clock_fg(self.hunt_time, "hunt", self.is_cursed)
-            status_text = "âš  CACERÃA âš " if self.cfg.IS_PREMIUM else "CACERIA ACTIVA"
+            status_text = "âš  CACERÃA âš " if self.cfg.IS_MODERN else "CACERIA ACTIVA"
             self._set_status(status_text, color)
         elif self.cooldown_active:
             if self.is_cursed:
@@ -305,8 +313,6 @@ class NefaHUBApp:
             self._recalc()
 
     def _cycle_hunt_duration(self):
-        if self.cooldown_active:
-            return
         old_total = self.hunt_total
         self.hunt_idx = (self.hunt_idx + 1) % len(HUNT_CYCLE)
         self.cfg.beep_thread("config")
@@ -315,6 +321,9 @@ class NefaHUBApp:
         if self.hunt_active:
             diff = self.hunt_total - old_total
             self.hunt_time += diff
+        elif self.cooldown_active:
+            diff = self.hunt_total - old_total
+            self.cooldown_time -= diff
 
     def _recalc(self):
         mk = MAP_CYCLE[self.map_idx]
@@ -371,7 +380,7 @@ class NefaHUBApp:
         self.cooldown_active = False
         self.cfg.beep_thread("hunt_start")
         color = self.cfg.get_clock_fg(self.hunt_time, "hunt", self.is_cursed)
-        status_text = "âš  CACERÃA âš " if self.cfg.IS_PREMIUM else "CACERIA ACTIVA"
+        status_text = "âš  CACERÃA âš " if self.cfg.IS_MODERN else "CACERIA ACTIVA"
         self._set_status(status_text, color)
 
     def _reset_hunt(self):
@@ -641,16 +650,16 @@ class NefaHUBApp:
         self.cfg_panel.pack(side="left", fill="y", padx=(10,4), pady=10, ipadx=10, ipady=8)
 
         tk.Label(self.cfg_panel, text=self.cfg.LBL_CONFIG_TITLE,
-                 font=self.cfg.F_CONFIG_VAL, bg=self.cfg.C_PANEL, fg=self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else self.cfg.C_DIM).pack(pady=(8,6))
+                 font=self.cfg.F_CONFIG_VAL, bg=self.cfg.C_PANEL, fg=self.cfg.C_ACCENT if self.cfg.IS_MODERN else self.cfg.C_DIM).pack(pady=(8,6))
 
         self._cfg_row(self.cfg.LBL_MAP, "lbl_map_val",   "#ffffff")
         self._cfg_row(self.cfg.LBL_MODE, "lbl_curse_val", self.cfg.C_BLUE)
         self._cfg_row(self.cfg.LBL_DIF,  "lbl_hunt_val",  "#ffffff")
 
-        divider_color = "#222438" if self.cfg.IS_PREMIUM else "#444444"
+        divider_color = "#222438" if self.cfg.IS_MODERN else "#444444"
         tk.Frame(self.cfg_panel, bg=divider_color, height=1).pack(fill="x", padx=8, pady=8)
 
-        total_color = "#66fcf1" if self.cfg.IS_PREMIUM else "#ffffff"
+        total_color = "#66fcf1" if self.cfg.IS_MODERN else "#ffffff"
         self.lbl_total = tk.Label(self.cfg_panel, text="TOTAL: --s",
                                   font=self.cfg.F_CONFIG_VAL, bg=self.cfg.C_PANEL, fg=total_color)
         self.lbl_total.pack(pady=2)
@@ -658,7 +667,7 @@ class NefaHUBApp:
         tk.Frame(self.cfg_panel, bg=divider_color, height=1).pack(fill="x", padx=8, pady=8)
 
         self.lbl_hotkey_hint = tk.Label(self.cfg_panel,
-                 text="", font=self.cfg.F_CONFIG_LBL, bg=self.cfg.C_PANEL, fg="#44475a" if self.cfg.IS_PREMIUM else "#aaaaaa", justify="left")
+                 text="", font=self.cfg.F_CONFIG_LBL, bg=self.cfg.C_PANEL, fg="#44475a" if self.cfg.IS_MODERN else "#aaaaaa", justify="left")
         self.lbl_hotkey_hint.pack(padx=8, pady=4)
 
         # Ghost rhythm status indicator
@@ -667,7 +676,7 @@ class NefaHUBApp:
             font=self.cfg.F_CONFIG_LBL, bg=self.cfg.C_PANEL, fg=self.cfg.C_DIM)
         self.lbl_ghost_status.pack(padx=8, pady=(0, 4))
 
-        bpm_font = ("Consolas", 18, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 16, "bold")
+        bpm_font = ("Consolas", 18, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 16, "bold")
         self.lbl_bpm_status = tk.Label(
             self.cfg_panel, text="",
             font=bpm_font, bg=self.cfg.C_PANEL, fg=self.cfg.C_ACCENT)
@@ -675,14 +684,14 @@ class NefaHUBApp:
         
         self._refresh_hotkey_hint()
 
-        btn_bg = self.cfg.C_ROOT if self.cfg.IS_PREMIUM else "#3e3e3e"
-        btn_fg = "#555577" if self.cfg.IS_PREMIUM else "#ffffff"
-        btn_relief = "flat" if self.cfg.IS_PREMIUM else "raised"
+        btn_bg = self.cfg.C_ROOT if self.cfg.IS_MODERN else "#3e3e3e"
+        btn_fg = "#555577" if self.cfg.IS_MODERN else "#ffffff"
+        btn_relief = "flat" if self.cfg.IS_MODERN else "raised"
         tk.Button(self.cfg_panel, text=self.cfg.LBL_SETTINGS_BTN,
                   font=self.cfg.F_CONFIG_LBL, bg=btn_bg, fg=btn_fg,
-                  relief=btn_relief, cursor="hand2", bd=0 if self.cfg.IS_PREMIUM else 1,
-                  activebackground=self.cfg.C_BLOCK if self.cfg.IS_PREMIUM else "#4e4e4e", 
-                  activeforeground=self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else "#ffffff",
+                  relief=btn_relief, cursor="hand2", bd=0 if self.cfg.IS_MODERN else 1,
+                  activebackground=self.cfg.C_BLOCK if self.cfg.IS_MODERN else "#4e4e4e", 
+                  activeforeground=self.cfg.C_ACCENT if self.cfg.IS_MODERN else "#ffffff",
                   command=self._open_settings).pack(pady=(2, 8))
 
         # RIGHT – HUD panel
@@ -712,10 +721,10 @@ class NefaHUBApp:
         top_row.pack(fill="x", padx=10, pady=(8,0))
 
         self.lbl_status = tk.Label(top_row, text="",
-                                   font=self.cfg.F_STATUS_MAIN, bg=self.cfg.C_BLOCK, fg=self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else self.cfg.C_GREEN)
+                                   font=self.cfg.F_STATUS_MAIN, bg=self.cfg.C_BLOCK, fg=self.cfg.C_ACCENT if self.cfg.IS_MODERN else self.cfg.C_GREEN)
         self.lbl_status.pack(side="left")
 
-        if self.cfg.IS_PREMIUM:
+        if self.cfg.IS_MODERN:
             ref_f = tk.Frame(top_row, bg=self.cfg.C_BLOCK)
             ref_f.pack(side="right")
             tk.Label(ref_f, text=self.cfg.LBL_LAST_LBL, font=self.cfg.F_REF_LBL, bg=self.cfg.C_BLOCK, fg="#333355").pack(anchor="e")
@@ -733,19 +742,19 @@ class NefaHUBApp:
         clk_inner = tk.Frame(self.hunt_clock_frame, bg=self.cfg.C_BLOCK)
         clk_inner.pack(pady=(0,4))
 
-        cfg_letters_font = ("Consolas", 18, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 12, "bold")
-        cfg_letters_fg = "#44475a" if self.cfg.IS_PREMIUM else self.cfg.C_DIM
+        cfg_letters_font = ("Consolas", 18, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 12, "bold")
+        cfg_letters_fg = "#44475a" if self.cfg.IS_MODERN else self.cfg.C_DIM
         self.lbl_hunt_cfg = tk.Label(clk_inner, text="[--]", font=cfg_letters_font, bg=self.cfg.C_BLOCK, fg=cfg_letters_fg)
         self.lbl_hunt_cfg.pack(side="left", padx=(0, 6), anchor="s", pady=(0,8))
 
-        clock_init_fg = "#555577" if self.cfg.IS_PREMIUM else self.cfg.C_DIM
+        clock_init_fg = "#555577" if self.cfg.IS_MODERN else self.cfg.C_DIM
         self.lbl_hunt_clock = tk.Label(clk_inner, text="00:00.0",
                                        font=self.cfg.F_CLOCK_MAIN, bg=self.cfg.C_BLOCK, fg=clock_init_fg)
         self.lbl_hunt_clock.pack(side="left")
 
         self.canvas_bar = tk.Canvas(self.hunt_clock_frame, height=8, bg=self.cfg.C_ROOT, highlightthickness=0)
         self.canvas_bar.pack(fill="x", padx=10, pady=(0,8))
-        self.bar_rect = self.canvas_bar.create_rectangle(0, 0, 0, 8, fill="#2a2a3a" if self.cfg.IS_PREMIUM else "#d0d0d0", width=0)
+        self.bar_rect = self.canvas_bar.create_rectangle(0, 0, 0, 8, fill="#2a2a3a" if self.cfg.IS_MODERN else "#d0d0d0", width=0)
 
 
     def _refresh_hotkey_hint(self):
@@ -755,7 +764,7 @@ class NefaHUBApp:
             f"[{k['incense_start'].upper()}]  Incienso",
             f"[{k['incense_pause'].upper()}]  Pausa",
             f"[{k['hunt'].upper()}]  Cacería",
-            f"[{k['cycle_view'].upper()}] Vista" if self.cfg.IS_PREMIUM else f"[{k['cycle_view'].upper()}]  Vista",
+            f"[{k['cycle_view'].upper()}] Vista" if self.cfg.IS_MODERN else f"[{k['cycle_view'].upper()}]  Vista",
             f"[{k.get('bpm_tap', '5').upper()}]  Contador BPM",
         ]
         self.lbl_hotkey_hint.config(text="\n".join(lines))
@@ -777,16 +786,16 @@ class NefaHUBApp:
         win.geometry("480x680")
         self._settings_win = win
 
-        divider_color = self.cfg.C_DIM if self.cfg.IS_PREMIUM else "#444444"
-        defaults_fg   = "#66668a" if self.cfg.IS_PREMIUM else self.cfg.C_DIM
-        lbl_font      = ("Consolas", 9) if self.cfg.IS_PREMIUM else ("Segoe UI", 9)
-        lbl_fg        = "#aaaacc" if self.cfg.IS_PREMIUM else "#ffffff"
-        entry_font     = ("Consolas", 9, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 9, "bold")
-        entry_lbl_font = ("Consolas", 9)         if self.cfg.IS_PREMIUM else ("Segoe UI", 9)
-        hdr_font       = ("Consolas", 8, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 8, "bold")
-        entry_fg       = self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else "#ffffff"
+        divider_color = self.cfg.C_DIM if self.cfg.IS_MODERN else "#444444"
+        defaults_fg   = "#66668a" if self.cfg.IS_MODERN else self.cfg.C_DIM
+        lbl_font      = ("Consolas", 9) if self.cfg.IS_MODERN else ("Segoe UI", 9)
+        lbl_fg        = "#aaaacc" if self.cfg.IS_MODERN else "#ffffff"
+        entry_font     = ("Consolas", 9, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 9, "bold")
+        entry_lbl_font = ("Consolas", 9)         if self.cfg.IS_MODERN else ("Segoe UI", 9)
+        hdr_font       = ("Consolas", 8, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 8, "bold")
+        entry_fg       = self.cfg.C_ACCENT if self.cfg.IS_MODERN else "#ffffff"
         entry_bg       = self.cfg.C_ROOT
-        entry_relief   = "flat" if self.cfg.IS_PREMIUM else "sunken"
+        entry_relief   = "flat" if self.cfg.IS_MODERN else "sunken"
 
         # ── Save/Cancel pinned at the bottom (pack FIRST so they stay visible) ──
         bottom_sep = tk.Frame(win, bg=divider_color, height=1)
@@ -812,8 +821,8 @@ class NefaHUBApp:
         scroll_canvas.pack(side="left", fill="both", expand=True)
 
         # ── Title ─────────────────────────────────────────────────────────────
-        title_font = ("Consolas", 13, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 12, "bold")
-        title_fg   = self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else "#ffffff"
+        title_font = ("Consolas", 13, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 12, "bold")
+        title_fg   = self.cfg.C_ACCENT if self.cfg.IS_MODERN else "#ffffff"
         tk.Label(inner, text=self.cfg.LBL_SETTINGS_BTN, font=title_font,
                  bg=self.cfg.C_PANEL, fg=title_fg).pack(pady=(14, 6))
         tk.Frame(inner, bg=divider_color, height=1).pack(fill="x", padx=16)
@@ -832,8 +841,8 @@ class NefaHUBApp:
                  fg=lbl_fg, width=12, anchor="w").pack(side="left")
 
         map_var      = tk.IntVar(value=self.map_idx)
-        radio_fg     = self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else "#ffffff"
-        radio_active = self.cfg.C_GOLD   if self.cfg.IS_PREMIUM else "#ffffff"
+        radio_fg     = self.cfg.C_ACCENT if self.cfg.IS_MODERN else "#ffffff"
+        radio_active = self.cfg.C_GOLD   if self.cfg.IS_MODERN else "#ffffff"
         for i, lbl in enumerate(MAP_LABELS.values()):
             tk.Radiobutton(map_row, text=lbl, variable=map_var, value=i,
                            font=lbl_font, bg=self.cfg.C_BLOCK, fg=radio_fg,
@@ -882,7 +891,7 @@ class NefaHUBApp:
                 tk.Entry(row_frame, textvariable=var, font=entry_font,
                          bg=entry_bg, fg=entry_fg, insertbackground=entry_fg,
                          width=8, justify="center", relief=entry_relief,
-                         bd=0 if self.cfg.IS_PREMIUM else 1).pack(side="left", padx=6)
+                         bd=0 if self.cfg.IS_MODERN else 1).pack(side="left", padx=6)
 
         cursed_row = tk.Frame(times_frame, bg=self.cfg.C_BLOCK)
         cursed_row.pack(fill="x", pady=(8, 2))
@@ -890,11 +899,11 @@ class NefaHUBApp:
                  bg=self.cfg.C_BLOCK, fg=lbl_fg, width=12, anchor="w").pack(side="left")
         cursed_var = tk.StringVar(
             value=str(int(self.cursed_mod) if float(self.cursed_mod).is_integer() else self.cursed_mod))
-        cursed_fg = self.cfg.C_PURPLE if self.cfg.IS_PREMIUM else "#ffffff"
+        cursed_fg = self.cfg.C_PURPLE if self.cfg.IS_MODERN else "#ffffff"
         tk.Entry(cursed_row, textvariable=cursed_var, font=entry_font,
                  bg=entry_bg, fg=cursed_fg, insertbackground=cursed_fg,
                  width=8, justify="center", relief=entry_relief,
-                 bd=0 if self.cfg.IS_PREMIUM else 1).pack(side="left", padx=6)
+                 bd=0 if self.cfg.IS_MODERN else 1).pack(side="left", padx=6)
         tk.Label(cursed_row, text="segundos extra", font=hdr_font,
                  bg=self.cfg.C_BLOCK, fg=defaults_fg).pack(side="left", padx=6)
 
@@ -906,15 +915,15 @@ class NefaHUBApp:
 
         reset_row = tk.Frame(times_frame, bg=self.cfg.C_BLOCK)
         reset_row.pack(fill="x", pady=(8, 2))
-        reset_bg     = self.cfg.C_ROOT if self.cfg.IS_PREMIUM else "#3e3e3e"
-        reset_fg     = self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else "#ffffff"
-        reset_relief = "flat" if self.cfg.IS_PREMIUM else "raised"
+        reset_bg     = self.cfg.C_ROOT if self.cfg.IS_MODERN else "#3e3e3e"
+        reset_fg     = self.cfg.C_ACCENT if self.cfg.IS_MODERN else "#ffffff"
+        reset_relief = "flat" if self.cfg.IS_MODERN else "raised"
         tk.Button(reset_row, text=self.cfg.LBL_RESET_BTN,
                   font=entry_font, bg=reset_bg, fg=reset_fg,
                   relief=reset_relief, cursor="hand2", padx=6, pady=4,
-                  activebackground=self.cfg.C_BLOCK if self.cfg.IS_PREMIUM else "#4e4e4e",
-                  activeforeground=self.cfg.C_GOLD  if self.cfg.IS_PREMIUM else "#ffffff",
-                  command=reset_defaults, bd=0 if self.cfg.IS_PREMIUM else 1).pack(anchor="center")
+                  activebackground=self.cfg.C_BLOCK if self.cfg.IS_MODERN else "#4e4e4e",
+                  activeforeground=self.cfg.C_GOLD  if self.cfg.IS_MODERN else "#ffffff",
+                  command=reset_defaults, bd=0 if self.cfg.IS_MODERN else 1).pack(anchor="center")
 
         # ── CONTROLES (key bindings) ──────────────────────────────────────────
         tk.Frame(inner, bg=divider_color, height=1).pack(fill="x", padx=16, pady=(10, 0))
@@ -945,7 +954,7 @@ class NefaHUBApp:
             self._capture_callback = finish_capture
             btn_refs[action].config(text="[ PRESIONA ]", fg="#000000", bg="#ffc107")
 
-        ctrl_lbl_font = ("Consolas", 8) if self.cfg.IS_PREMIUM else ("Segoe UI", 8)
+        ctrl_lbl_font = ("Consolas", 8) if self.cfg.IS_MODERN else ("Segoe UI", 8)
         for action, label in ACTION_LABELS.items():
             row = tk.Frame(ctrl_frame, bg=self.cfg.C_BLOCK)
             row.pack(fill="x", pady=2)
@@ -986,7 +995,7 @@ class NefaHUBApp:
         tk.Label(vol_row, text="Volumen:", font=lbl_font, bg=self.cfg.C_BLOCK,
                  fg=lbl_fg, width=12, anchor="w").pack(side="left")
         volume_var = tk.IntVar(value=self.ghost_volume)
-        slider_fg  = self.cfg.C_ACCENT if self.cfg.IS_PREMIUM else "#ffffff"
+        slider_fg  = self.cfg.C_ACCENT if self.cfg.IS_MODERN else "#ffffff"
         tk.Scale(vol_row, from_=0, to=100, orient=tk.HORIZONTAL,
                  variable=volume_var, length=200,
                  bg=self.cfg.C_BLOCK, fg=slider_fg, troughcolor=self.cfg.C_ROOT,
@@ -1035,7 +1044,7 @@ class NefaHUBApp:
             self.keys = keys_backup
             win.destroy()
 
-        save_btn_font = ("Consolas", 9, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 9, "bold")
+        save_btn_font = ("Consolas", 9, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 9, "bold")
         tk.Button(bf, text="  GUARDAR  ", font=save_btn_font,
                   bg="#3e3e3e", fg="#ffffff", relief="raised", bd=1, padx=8, pady=4,
                   activebackground="#4e4e4e", cursor="hand2",
@@ -1050,11 +1059,11 @@ class NefaHUBApp:
         row = tk.Frame(self.cfg_panel, bg=self.cfg.C_PANEL)
         row.pack(fill="x", padx=8, pady=2)
         
-        cfg_lbl_font = ("Consolas", 9) if self.cfg.IS_PREMIUM else ("Segoe UI", 9)
-        cfg_val_font = ("Consolas", 9, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 9, "bold")
+        cfg_lbl_font = ("Consolas", 9) if self.cfg.IS_MODERN else ("Segoe UI", 9)
+        cfg_val_font = ("Consolas", 9, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 9, "bold")
         
         tk.Label(row, text=label_text, font=cfg_lbl_font,
-                 bg=self.cfg.C_PANEL, fg="#aaaaaa", width=12 if self.cfg.IS_PREMIUM else 10, anchor="w").pack(side="left")
+                 bg=self.cfg.C_PANEL, fg="#aaaaaa", width=12 if self.cfg.IS_MODERN else 10, anchor="w").pack(side="left")
         lbl = tk.Label(row, text="---", font=cfg_val_font, bg=self.cfg.C_PANEL, fg=fg, anchor="w")
         lbl.pack(side="left", padx=4)
         setattr(self, attr, lbl)
@@ -1093,7 +1102,7 @@ class NefaHUBApp:
         self.ov_clock_row = tk.Frame(ov, bg=self.cfg.C_CHROMA)
         self.ov_clock_row.pack(anchor="w", padx=10, pady=(0,8))
 
-        cfg_letters_font = ("Consolas", 18, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 12, "bold")
+        cfg_letters_font = ("Consolas", 18, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 12, "bold")
         self.ov_cfg_hint = tk.Label(self.ov_clock_row, text="[--]", font=cfg_letters_font, bg=self.cfg.C_CHROMA, fg=self.cfg.C_DIM)
         self.ov_cfg_hint.pack(side="left", anchor="s", pady=(0,5), padx=(0,4))
 
@@ -1101,7 +1110,7 @@ class NefaHUBApp:
                                  font=self.cfg.F_CLOCK_OV, bg=self.cfg.C_CHROMA, fg=self.cfg.C_DIM)
         self.ov_clock.pack(side="left")
 
-        ov_bpm_font = ("Consolas", 16, "bold") if self.cfg.IS_PREMIUM else ("Segoe UI", 14, "bold")
+        ov_bpm_font = ("Consolas", 16, "bold") if self.cfg.IS_MODERN else ("Segoe UI", 14, "bold")
         self.ov_bpm_status = tk.Label(ov, text="",
                                       font=ov_bpm_font, bg=self.cfg.C_CHROMA, fg=self.cfg.C_ACCENT)
         self.ov_bpm_status.pack(anchor="w", padx=10, pady=(4,0))

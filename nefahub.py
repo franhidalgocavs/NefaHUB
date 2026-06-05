@@ -12,5 +12,5 @@ if __name__ == "__main__":
         except: pass
 
     root = tk.Tk()
-    app = nefahub_core.NefaHUBApp(root, config=nefahub_config.PremiumConfig())
+    app = nefahub_core.NefaHUBApp(root, config=nefahub_config.ModernConfig())
     root.mainloop()

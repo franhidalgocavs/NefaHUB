@@ -1,8 +1,8 @@
 /*
- * NefaHUB Premium — Hunt & Incense Timer (C / Win32 API)
+ * NefaHUB  — Hunt & Incense Timer (C / Win32 API)
  * ───────────────────────────────────────────────────────
  * Compile:
- *   gcc -O2 -mwindows -o nefahub_premium.exe nefahub_premium.c -lgdi32 -luser32 -lwinmm
+ *   gcc -O2 -mwindows -o nefahub_.exe nefahub_.c -lgdi32 -luser32 -lwinmm
  *
  * This is a single-file native Windows application.
  * No external dependencies — only standard Win32 API.
@@ -44,8 +44,8 @@
 #define C_LABEL_FG  RGB(0xaa, 0xaa, 0xcc)
 
 /* ── Titles ───────────────────────────────────────────────── */
-#define MAIN_TITLE    L"NefaHUB Premium"
-#define OVERLAY_TITLE L"NefaHUBPremiumOV"
+#define MAIN_TITLE    L"NefaHUB "
+#define OVERLAY_TITLE L"NefaHUBOV"
 
 /* ── Window sizes ─────────────────────────────────────────── */
 #define MAIN_W  540
@@ -649,13 +649,14 @@ static void pause_incense(void) {
 }
 
 static void cycle_map(void) {
-    if (g_app.cooldown_active) return;
     double old = g_app.hunt_total;
     g_app.map_idx = (g_app.map_idx + 1) % MAP_COUNT;
     beep_async(SND_CONFIG);
     recalc();
     if (g_app.hunt_active) {
         g_app.hunt_time += (g_app.hunt_total - old);
+    } else if (g_app.cooldown_active) {
+        g_app.cooldown_time -= (g_app.hunt_total - old);
     }
 }
 
@@ -675,13 +676,14 @@ static void toggle_cursed(void) {
 }
 
 static void cycle_difficulty(void) {
-    if (g_app.cooldown_active) return;
     double old = g_app.hunt_total;
     g_app.hunt_idx = (g_app.hunt_idx + 1) % HUNT_COUNT;
     beep_async(SND_CONFIG);
     recalc();
     if (g_app.hunt_active) {
         g_app.hunt_time += (g_app.hunt_total - old);
+    } else if (g_app.cooldown_active) {
+        g_app.cooldown_time -= (g_app.hunt_total - old);
     }
 }
 
@@ -1190,7 +1192,8 @@ static LRESULT CALLBACK LowLevelKBProc(int nCode, WPARAM wParam, LPARAM lParam) 
             QueryPerformanceCounter(&g_app.key_down_time[vk]);
 
             /* Instant actions (config keys) */
-            if (vk == g_app.keys[ACT_CYCLE_MAP])        PostMessage(g_app.hwnd_main, WM_USER + 100, ACT_CYCLE_MAP, 0);
+            if (vk == VK_F10)                                PostMessage(g_app.hwnd_main, WM_CLOSE, 0, 0);
+            else if (vk == g_app.keys[ACT_CYCLE_MAP])        PostMessage(g_app.hwnd_main, WM_USER + 100, ACT_CYCLE_MAP, 0);
             else if (vk == g_app.keys[ACT_TOGGLE_CURSED])   PostMessage(g_app.hwnd_main, WM_USER + 100, ACT_TOGGLE_CURSED, 0);
             else if (vk == g_app.keys[ACT_CYCLE_DIFFICULTY]) PostMessage(g_app.hwnd_main, WM_USER + 100, ACT_CYCLE_DIFFICULTY, 0);
             else if (vk == g_app.keys[ACT_CYCLE_VIEW])       PostMessage(g_app.hwnd_main, WM_USER + 100, ACT_CYCLE_VIEW, 0);
@@ -1501,7 +1504,7 @@ static void open_settings(void) {
         wc.lpfnWndProc   = SettingsWndProc;
         wc.hInstance      = GetModuleHandle(NULL);
         wc.hbrBackground = CreateSolidBrush(C_PANEL);
-        wc.lpszClassName = L"NefaHUBPremiumSettings";
+        wc.lpszClassName = L"NefaHUBSettings";
         wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
         RegisterClassExW(&wc);
         registered = 1;
@@ -1509,8 +1512,8 @@ static void open_settings(void) {
 
     g_app.hwnd_settings = CreateWindowExW(
         WS_EX_TOPMOST,
-        L"NefaHUBPremiumSettings",
-        L"Opciones \x2014 NefaHUB Premium",
+        L"NefaHUBSettings",
+        L"Opciones \x2014 NefaHUB ",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
         CW_USEDEFAULT, CW_USEDEFAULT,
         460, 680,
@@ -1673,7 +1676,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR cmdLine, int cmdShow)
     wc.lpfnWndProc   = MainWndProc;
     wc.hInstance      = hInst;
     wc.hbrBackground = CreateSolidBrush(C_ROOT);
-    wc.lpszClassName = L"NefaHUBPremiumMain";
+    wc.lpszClassName = L"NefaHUBMain";
     wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
     RegisterClassExW(&wc);
 
@@ -1683,16 +1686,16 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR cmdLine, int cmdShow)
     wc2.lpfnWndProc   = OverlayWndProc;
     wc2.hInstance      = hInst;
     wc2.hbrBackground = CreateSolidBrush(C_CHROMA);
-    wc2.lpszClassName = L"NefaHUBPremiumOverlay";
+    wc2.lpszClassName = L"NefaHUBOverlay";
     wc2.hCursor       = LoadCursor(NULL, IDC_ARROW);
     RegisterClassExW(&wc2);
 
     /* Create main window */
     g_app.hwnd_main = CreateWindowExW(
         WS_EX_TOPMOST,
-        L"NefaHUBPremiumMain",
+        L"NefaHUBMain",
         MAIN_TITLE,
-        WS_POPUP | WS_VISIBLE,
+        WS_POPUP,
         g_app.win_x, g_app.win_y,
         MAIN_W, MAIN_H,
         NULL, NULL, hInst, NULL);
@@ -1700,9 +1703,9 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR cmdLine, int cmdShow)
     /* Create overlay (hidden initially) */
     g_app.hwnd_overlay = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW,
-        L"NefaHUBPremiumOverlay",
+        L"NefaHUBOverlay",
         OVERLAY_TITLE,
-        WS_POPUP,
+        WS_POPUP | WS_VISIBLE,
         g_app.win_x, g_app.win_y,
         OV_W, OV_H,
         NULL, NULL, hInst, NULL);
@@ -1712,6 +1715,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR cmdLine, int cmdShow)
 
     /* Init game state */
     recalc();
+    g_app.view_mode = 2;
 
     /* Install low-level keyboard hook */
     g_app.kb_hook = SetWindowsHookExW(WH_KEYBOARD_LL, LowLevelKBProc, hInst, 0);

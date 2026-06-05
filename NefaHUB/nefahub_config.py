@@ -3,7 +3,7 @@ import time, threading, winsound
 # ==============================================================================
 class BaseConfig:
 # ==============================================================================
-    IS_PREMIUM = False
+    IS_Modern = False
     
     # ── Titles ────────────────────────────────────────────────────────
     MAIN_TITLE    = "NefaHUB Base"
@@ -104,13 +104,13 @@ class BaseConfig:
 
 
 # ==============================================================================
-class PremiumConfig(BaseConfig):
+class ModernConfig(BaseConfig):
 # ==============================================================================
-    IS_PREMIUM = True
+    IS_Modern = True
     
     # ── Titles ────────────────────────────────────────────────────────
-    MAIN_TITLE    = "NefaHUB Premium"
-    OVERLAY_TITLE = "NefaHUBPremiumOV"
+    MAIN_TITLE    = "NefaHUB Modern"
+    OVERLAY_TITLE = "NefaHUBModernOV"
     
     # ── Colors ────────────────────────────────────────────────────────
     C_ROOT   = "#0d0f1a"
@@ -145,7 +145,7 @@ class PremiumConfig(BaseConfig):
     LBL_MODE          = "F2  MODO:"
     LBL_DIF           = "F3  DIF:"
     LBL_SETTINGS_BTN  = "⚙ OPCIONES"
-    LBL_SETTINGS_WIN  = "Opciones — NefaHUB Premium"
+    LBL_SETTINGS_WIN  = "Opciones — NefaHUB Modern"
     LBL_INCENSE_LBL   = "INCIENSO [1]"
     LBL_INCENSE_READY = "INCIENSO LISTO"
     LBL_INCENSE_RUN   = "🔥 INCIENSO"

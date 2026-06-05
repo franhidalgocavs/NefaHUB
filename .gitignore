@@ -1,0 +1,16 @@
+# Executables
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+
+# Local/IDE/Other
+.atl/
+openspec/
+borrar/
+
+# Build Objects
+*.o
+# Large Source images
+ico.png
