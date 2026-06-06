@@ -74,14 +74,16 @@ static const int HUNT_MATRIX[3][3] = {
 
 #define CURSED_MOD 20
 
-#define IDC_SAVE      2001
 #define IDC_CANCEL    2002
 #define IDC_RESET_DEFAULTS 2003
+#define IDC_APPLY     2004
 #define IDC_MAP_BASE  2100
 #define IDC_HUNT_BASE 2200
 #define IDC_KEY_BASE  2300
 #define IDC_EDIT_BASE 2400
 #define IDC_EDIT_CURSED 2500
+#define IDC_EDIT_BPM  2501
+#define IDC_EDIT_VOLUME 2502
 
 /* ── Default key bindings (virtual key codes) ─────────────── */
 /* We store VK codes for simplicity in C */
@@ -146,7 +148,8 @@ typedef struct {
 
     /* Ghost rhythm */
     int    ghost_active;
-    int    ghost_volume;
+    int    global_volume;
+    int    ghost_bpm;
     double ghost_interval;
     HANDLE ghost_thread;
     char  *ghost_wav;
@@ -301,18 +304,32 @@ static void get_key_name(int vk, wchar_t *buf, int buflen) {
 #define SND_CURSED_OFF    7
 #define SND_VIEW          8
 
+static char* create_wav_buffer(int freq, int duration_ms, int volume, double decay);
+
+static void my_beep(int freq, int duration_ms) {
+    // Reducimos el volumen de los beeps de interfaz porque
+    // las frecuencias altas suenan mucho mas fuerte al oido
+    // que el golpe grave de 120Hz del metronomo.
+    int beep_vol = g_app.global_volume / 3;
+    char *wav = create_wav_buffer(freq, duration_ms, beep_vol, 0.0);
+    if (wav) {
+        PlaySoundA(wav, NULL, SND_MEMORY | SND_SYNC);
+        free(wav);
+    }
+}
+
 static DWORD WINAPI beep_thread(LPVOID param) {
     int id = (int)(intptr_t)param;
     switch (id) {
-        case SND_WELCOME:       Beep(600,80);  Beep(900,100); Beep(1200,130); break;
-        case SND_HUNT_START:    Beep(880,130); Beep(880,130); break;
-        case SND_INCENSE_START: Beep(523,80);  Beep(659,80);  Beep(784,120);  break;
-        case SND_SAFE:          Beep(1047,100);Beep(1318,100);Beep(1568,180); break;
-        case SND_INCENSE_DONE:  Beep(784,100); Beep(659,100); Beep(523,150);  break;
-        case SND_CONFIG:        Beep(750,80);  break;
-        case SND_CURSED_ON:     Beep(880,80);  Beep(660,120); break;
-        case SND_CURSED_OFF:    Beep(660,80);  Beep(880,120); break;
-        case SND_VIEW:          Beep(800,60);  break;
+        case SND_WELCOME:       my_beep(600,80);  my_beep(900,100); my_beep(1200,130); break;
+        case SND_HUNT_START:    my_beep(880,130); my_beep(880,130); break;
+        case SND_INCENSE_START: my_beep(523,80);  my_beep(659,80);  my_beep(784,120);  break;
+        case SND_SAFE:          my_beep(1047,100);my_beep(1318,100);my_beep(1568,180); break;
+        case SND_INCENSE_DONE:  my_beep(784,100); my_beep(659,100); my_beep(523,150);  break;
+        case SND_CONFIG:        my_beep(750,80);  break;
+        case SND_CURSED_ON:     my_beep(880,80);  my_beep(660,120); break;
+        case SND_CURSED_OFF:    my_beep(660,80);  my_beep(880,120); break;
+        case SND_VIEW:          my_beep(800,60);  break;
     }
     return 0;
 }
@@ -365,6 +382,10 @@ static void load_config(void) {
     g_app.hunt_matrix[1][0] = 20; g_app.hunt_matrix[1][1] = 40; g_app.hunt_matrix[1][2] = 50; /* media */
     g_app.hunt_matrix[2][0] = 30; g_app.hunt_matrix[2][1] = 50; g_app.hunt_matrix[2][2] = 60; /* alta */
 
+    g_app.global_volume = 80;
+    g_app.ghost_bpm = 117;
+    g_app.ghost_interval = 60.0 / 117.0;
+
     wchar_t cpath[MAX_PATH];
     get_config_path(cpath);
     FILE *f = _wfopen(cpath, L"rb");
@@ -383,8 +404,11 @@ static void load_config(void) {
     g_app.map_idx  = json_int(buf, "default_map_idx",  g_app.map_idx);
     g_app.hunt_idx = json_int(buf, "default_hunt_idx", g_app.hunt_idx);
     g_app.cursed_mod = json_int(buf, "cursed_mod", g_app.cursed_mod);
-    g_app.ghost_volume = json_int(buf, "ghost_volume", 80);
-    g_app.ghost_interval = json_double(buf, "ghost_interval", 1.0 / 1.95);
+    g_app.global_volume = json_int(buf, "global_volume", 80);
+    if (g_app.global_volume < 0 || g_app.global_volume > 100) g_app.global_volume = 80;
+    
+    g_app.ghost_bpm = json_int(buf, "ghost_bpm", 117);
+    g_app.ghost_interval = 60.0 / g_app.ghost_bpm;
 
     g_app.hunt_matrix[0][0] = json_int(buf, "time_baja_chico",   g_app.hunt_matrix[0][0]);
     g_app.hunt_matrix[0][1] = json_int(buf, "time_baja_mediano", g_app.hunt_matrix[0][1]);
@@ -439,8 +463,8 @@ static void save_config(void) {
     fprintf(f, "  \"time_alta_chico\": %d,\n", g_app.hunt_matrix[2][0]);
     fprintf(f, "  \"time_alta_mediano\": %d,\n", g_app.hunt_matrix[2][1]);
     fprintf(f, "  \"time_alta_grande\": %d,\n", g_app.hunt_matrix[2][2]);
-    fprintf(f, "  \"ghost_volume\": %d,\n", g_app.ghost_volume);
-    fprintf(f, "  \"ghost_interval\": %f,\n", g_app.ghost_interval);
+    fprintf(f, "  \"global_volume\": %d,\n", g_app.global_volume);
+    fprintf(f, "  \"ghost_bpm\": %d,\n", g_app.ghost_bpm);
     for (int i = 0; i < ACT_COUNT; i++) {
         fprintf(f, "  \"key_%d\": %d%s\n", i, g_app.keys[i],
                 (i < ACT_COUNT - 1) ? "," : "");
@@ -453,11 +477,7 @@ static void save_config(void) {
  * GAME LOGIC
  * ═══════════════════════════════════════════════════════════════ */
 
-static void generate_beep_wav(int freq, int duration_ms, int volume, double decay) {
-    if (g_app.ghost_wav) {
-        free(g_app.ghost_wav);
-        g_app.ghost_wav = NULL;
-    }
+static char* create_wav_buffer(int freq, int duration_ms, int volume, double decay) {
     int sample_rate = 44100;
     int num_samples = sample_rate * duration_ms / 1000;
     if (volume < 0) volume = 0;
@@ -466,10 +486,10 @@ static void generate_beep_wav(int freq, int duration_ms, int volume, double deca
     
     int data_size = num_samples * sizeof(short);
     int total_size = 44 + data_size;
-    g_app.ghost_wav = (char *)malloc(total_size);
-    if (!g_app.ghost_wav) return;
+    char *wav = (char *)malloc(total_size);
+    if (!wav) return NULL;
     
-    char *p = g_app.ghost_wav;
+    char *p = wav;
     memcpy(p, "RIFF", 4); p += 4;
     int chunk_size = 36 + data_size;
     memcpy(p, &chunk_size, 4); p += 4;
@@ -499,6 +519,15 @@ static void generate_beep_wav(int freq, int duration_ms, int volume, double deca
         double env = (decay > 0) ? exp(-decay * t) : 1.0;
         samples[i] = (short)(amplitude * env * sin(2 * 3.14159265358979323846 * freq * t));
     }
+    return wav;
+}
+
+static void generate_beep_wav(int freq, int duration_ms, int volume, double decay) {
+    if (g_app.ghost_wav) {
+        free(g_app.ghost_wav);
+        g_app.ghost_wav = NULL;
+    }
+    g_app.ghost_wav = create_wav_buffer(freq, duration_ms, volume, decay);
 }
 
 static DWORD WINAPI ghost_rhythm_loop(LPVOID param) {
@@ -523,10 +552,12 @@ static DWORD WINAPI ghost_rhythm_loop(LPVOID param) {
 
 static void toggle_ghost_rhythm(void) {
     g_app.ghost_active = !g_app.ghost_active;
-    beep_async(SND_CONFIG);
     if (g_app.ghost_active) {
-        generate_beep_wav(120, 30, g_app.ghost_volume, 45.0);
+        // beep_async(SND_CONFIG);
+        generate_beep_wav(120, 30, g_app.global_volume, 45.0);
         g_app.ghost_thread = CreateThread(NULL, 0, ghost_rhythm_loop, NULL, 0, NULL);
+    } else {
+        PlaySoundA(NULL, NULL, 0);
     }
     invalidate_all();
 }
@@ -534,7 +565,6 @@ static void toggle_ghost_rhythm(void) {
 static void reset_bpm(void) {
     g_app.bpm_tap_count = 0;
     g_app.bpm_active = 0;
-    beep_async(SND_CONFIG);
     invalidate_all();
 }
 
@@ -581,14 +611,14 @@ static void start_hunt(void) {
         g_app.cooldown_time = 0.0;
         g_app.hunt_ref = g_app.hunt_total;
         g_app.has_hunt_ref = 1;
-        beep_async(SND_SAFE);
+        // beep_async(SND_SAFE);
         invalidate_all();
         return;
     }
     g_app.hunt_active = 1;
     g_app.hunt_time   = g_app.hunt_total;
     g_app.cooldown_active = 0;
-    beep_async(SND_HUNT_START);
+    // beep_async(SND_HUNT_START);
     invalidate_all();
 }
 
@@ -596,7 +626,7 @@ static void reset_hunt(void) {
     g_app.hunt_active = 0;
     g_app.cooldown_active = 0;
     g_app.hunt_time = g_app.hunt_total;
-    beep_async(SND_SAFE);
+    // beep_async(SND_SAFE);
     invalidate_all();
 }
 
@@ -607,7 +637,7 @@ static void start_incense(void) {
             g_app.incense_time   = 0.0;
             g_app.incense_paused = 0;
             g_app.incense_was_paused = 0;
-            beep_async(SND_INCENSE_START);
+            // beep_async(SND_INCENSE_START);
             invalidate_all();
             return;
         }
@@ -617,7 +647,7 @@ static void start_incense(void) {
         g_app.incense_time   = 0.0;
         g_app.incense_paused = 0;
         g_app.incense_was_paused = 0;
-        beep_async(SND_INCENSE_START);
+        // beep_async(SND_INCENSE_START);
         invalidate_all();
         return;
     }
@@ -625,7 +655,7 @@ static void start_incense(void) {
     g_app.incense_paused = 0;
     g_app.incense_was_paused = 0;
     g_app.incense_time   = 0.0;
-    beep_async(SND_INCENSE_START);
+    // beep_async(SND_INCENSE_START);
     invalidate_all();
 }
 
@@ -634,7 +664,7 @@ static void reset_incense(void) {
     g_app.incense_paused = 0;
     g_app.incense_was_paused = 0;
     g_app.incense_time = 0.0;
-    beep_async(SND_INCENSE_DONE);
+    // beep_async(SND_INCENSE_DONE);
     invalidate_all();
 }
 
@@ -734,13 +764,13 @@ static void tick(void) {
             if (excess >= 25.0) {
                 g_app.cooldown_active = 0;
                 g_app.hunt_time = g_app.hunt_total;
-                beep_async(SND_SAFE);
+                // beep_async(SND_SAFE);
             } else {
                 g_app.cooldown_active = 1;
                 g_app.cooldown_time = excess;
                 g_app.hunt_ref = g_app.hunt_total;
                 g_app.has_hunt_ref = 1;
-                beep_async(SND_SAFE);
+                // beep_async(SND_SAFE);
             }
         }
         need_repaint = 1;
@@ -887,7 +917,7 @@ static void paint_main(HWND hwnd) {
         double total_dur = g_app.bpm_taps[g_app.bpm_tap_count - 1] - g_app.bpm_taps[0];
         double avg_dur = total_dur / (g_app.bpm_tap_count - 1);
         double bpm = (avg_dur > 0) ? (60.0 / avg_dur) : 0;
-        double speed = bpm * (1.7 / 117.0);
+        double speed = bpm / (60.0 + bpm * 0.075);
         swprintf(hint, 64, L"BPM: %.0f (%.2f m/s)", bpm, speed);
         draw_text_color(hdc, g_app.f_status_main, hint,
                         px + 8, row_y, C_ACCENT, TA_LEFT | TA_TOP);
@@ -1152,7 +1182,7 @@ static void paint_overlay(HWND hwnd) {
         double total_dur = g_app.bpm_taps[g_app.bpm_tap_count - 1] - g_app.bpm_taps[0];
         double avg_dur = total_dur / (g_app.bpm_tap_count - 1);
         double bpm = (avg_dur > 0) ? (60.0 / avg_dur) : 0;
-        double speed = bpm * (1.7 / 117.0);
+        double speed = bpm / (60.0 + bpm * 0.075);
         swprintf(bpm_hint, 64, L"BPM: %.0f (%.2f m/s)", bpm, speed);
         draw_text_color(hdc, g_app.f_cfg_hint, bpm_hint,
                         10, y, C_ACCENT, TA_LEFT | TA_TOP);
@@ -1357,12 +1387,56 @@ static LRESULT CALLBACK SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         SendMessageW(hExtraLbl, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
         y += 40;
 
+        // Ghost Rhythm BPM
+        HWND hBpmLbl = CreateWindowW(L"STATIC", L"Ritmo Fantasma:",
+                      WS_CHILD | WS_VISIBLE,
+                      16, y + 2, 130, 20, hwnd, NULL, NULL, NULL);
+        SendMessageW(hBpmLbl, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+
+        HWND hBpmEdit = CreateWindowW(L"EDIT", L"",
+                      WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER,
+                      150, y, 60, 20, hwnd,
+                      (HMENU)(intptr_t)IDC_EDIT_BPM, NULL, NULL);
+        SendMessageW(hBpmEdit, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+        SetDlgItemInt(hwnd, IDC_EDIT_BPM, g_app.ghost_bpm, FALSE);
+
+        HWND hBpmExtraLbl = CreateWindowW(L"STATIC", L"BPM",
+                      WS_CHILD | WS_VISIBLE,
+                      220, y + 2, 150, 20, hwnd, NULL, NULL, NULL);
+        SendMessageW(hBpmExtraLbl, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+        y += 30;
+
+        // Ghost Rhythm Volume
+        HWND hVolLbl = CreateWindowW(L"STATIC", L"Volumen General:",
+                      WS_CHILD | WS_VISIBLE,
+                      16, y + 2, 130, 20, hwnd, NULL, NULL, NULL);
+        SendMessageW(hVolLbl, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+
+        HWND hVolEdit = CreateWindowW(L"EDIT", L"",
+                      WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER | ES_CENTER,
+                      150, y, 60, 20, hwnd,
+                      (HMENU)(intptr_t)IDC_EDIT_VOLUME, NULL, NULL);
+        SendMessageW(hVolEdit, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+        SetDlgItemInt(hwnd, IDC_EDIT_VOLUME, g_app.global_volume, FALSE);
+
+        HWND hVolExtraLbl = CreateWindowW(L"STATIC", L"%",
+                      WS_CHILD | WS_VISIBLE,
+                      220, y + 2, 150, 20, hwnd, NULL, NULL, NULL);
+        SendMessageW(hVolExtraLbl, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+        y += 40;
+
         /* Reset Defaults Button */
-        HWND hReset = CreateWindowW(L"BUTTON", L"\x21FB  RESTABLECER TIEMPOS POR DEFECTO",
+        HWND hReset = CreateWindowW(L"BUTTON", L"\x21FB  RESTABLECER TIEMPOS",
                       WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                      16, y, 420, 24, hwnd,
+                      16, y, 200, 24, hwnd,
                       (HMENU)(intptr_t)IDC_RESET_DEFAULTS, NULL, NULL);
         SendMessageW(hReset, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
+
+        HWND hApply = CreateWindowW(L"BUTTON", L"\x2714  APLICAR CAMBIOS",
+                      WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                      236, y, 200, 24, hwnd,
+                      (HMENU)(intptr_t)IDC_APPLY, NULL, NULL);
+        SendMessageW(hApply, WM_SETFONT, (WPARAM)g_app.f_settings_btn, TRUE);
         y += 34;
 
         /* Key bindings */
@@ -1452,9 +1526,11 @@ static LRESULT CALLBACK SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 }
             }
             SetDlgItemInt(hwnd, IDC_EDIT_CURSED, 20, FALSE);
+            SetDlgItemInt(hwnd, IDC_EDIT_BPM, 117, FALSE);
+            SetDlgItemInt(hwnd, IDC_EDIT_VOLUME, 80, FALSE);
         }
 
-        if (id == IDC_SAVE) {
+        if (id == IDC_SAVE || id == IDC_APPLY) {
             g_app.capturing_action = -1;
             g_app.map_idx  = temp_map;
             g_app.hunt_idx = temp_hunt;
@@ -1475,10 +1551,30 @@ static LRESULT CALLBACK SettingsWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
                 g_app.cursed_mod = (int)val_cursed;
             }
 
+            BOOL trans_bpm;
+            UINT val_bpm = GetDlgItemInt(hwnd, IDC_EDIT_BPM, &trans_bpm, FALSE);
+            if (trans_bpm && val_bpm > 0) {
+                g_app.ghost_bpm = (int)val_bpm;
+                g_app.ghost_interval = 60.0 / g_app.ghost_bpm;
+            }
+
+            BOOL trans_vol;
+            UINT val_vol = GetDlgItemInt(hwnd, IDC_EDIT_VOLUME, &trans_vol, FALSE);
+            if (trans_vol && val_vol <= 100) {
+                g_app.global_volume = (int)val_vol;
+            }
+
+            if (g_app.ghost_active) {
+                PlaySoundA(NULL, NULL, 0);
+                generate_beep_wav(120, 30, g_app.global_volume, 45.0);
+            }
+
             recalc();
             save_config();
             invalidate_all();
-            DestroyWindow(hwnd);
+            if (id == IDC_SAVE) {
+                DestroyWindow(hwnd);
+            }
         }
         if (id == IDC_CANCEL) {
             g_app.capturing_action = -1;
@@ -1532,7 +1628,7 @@ static void open_settings(void) {
         L"Opciones \x2014 NefaHUB ",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        460, 680,
+        460, 780,
         g_app.hwnd_main,
         NULL, GetModuleHandle(NULL), NULL);
 
