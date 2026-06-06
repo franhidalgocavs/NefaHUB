@@ -14,3 +14,8 @@ borrar/
 *.o
 # Large Source images
 ico.png
+
+# Release scripts and notes
+lanzar_release.bat
+notas_del_parche.md
+
