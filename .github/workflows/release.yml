@@ -1,0 +1,41 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MinGW (MSYS2 UCRT64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build nefahub.exe from source
+        shell: msys2 {0}
+        run: |
+          windres recursos.rc -o recursos.o
+          gcc -O2 -mwindows -o nefahub.exe nefahub.c recursos.o -lgdi32 -luser32 -lwinmm
+
+      - name: Generate checksum
+        shell: bash
+        run: sha256sum nefahub.exe > nefahub.exe.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            nefahub.exe
+            nefahub.exe.sha256
+          generate_release_notes: true

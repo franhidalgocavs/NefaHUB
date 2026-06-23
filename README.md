@@ -10,9 +10,15 @@ NefaHUB te brinda la experiencia definitiva en juego, incluyendo un HUD flotante
 
 ### Opción 1: Ejecutable Compilado (.exe) - RECOMENDADO
 No requiere instalar nada extra ni descargar dependencias.
-1. Descarga y ejecuta el archivo `nefahub.exe` **como Administrador** (es necesario para poder capturar los atajos de teclado globales mientras juegas).
+1. Descargá `nefahub.exe` desde la sección **[Releases](../../releases)** (no de ningún otro sitio) y ejecutalo **como Administrador** (es necesario para poder capturar los atajos de teclado globales mientras juegas).
    > [!WARNING]
-   > Al no contar con un certificado de firma de código digital (que son de pago), es muy probable que Windows Defender (SmartScreen) te muestre una pantalla azul indicando que la aplicación es desconocida o "insegura". Haz clic en **"Más información"** y luego en **"Ejecutar de todas formas"**.
+   > Al no contar con un certificado de firma de código digital (que es de pago), es muy probable que Windows Defender (SmartScreen) te muestre una pantalla azul indicando que la aplicación es desconocida. Haz clic en **"Más información"** y luego en **"Ejecutar de todas formas"**.
+
+#### 🔒 Transparencia de la compilación
+Cada release de `nefahub.exe` se genera automáticamente con **GitHub Actions** directamente desde el código fuente público (`nefahub.c`) de este repositorio — no se sube ningún binario compilado a mano. Podés:
+- Ver el log de compilación completo en la pestaña **[Actions](../../actions)** de cada release.
+- Verificar la integridad del archivo descargado contra el `nefahub.exe.sha256` publicado junto a cada release.
+- Compilarlo vos mismo con `build.bat` y comparar el resultado.
 
 
 ### Opción 2: Ejecutar desde el código fuente Python (`.py`)
@@ -78,3 +84,9 @@ Si realizas modificaciones al código fuente en C (`nefahub.c`), puedes recompil
    build.bat
    ```
    *(Requiere tener configurado el compilador GCC de MinGW-w64 en tu `PATH`, por ejemplo desde MSYS2).*
+
+---
+
+## 📄 Licencia
+
+Este proyecto es software libre bajo los términos de la **[GNU General Public License v3.0](LICENSE)**. Podés usarlo, modificarlo y redistribuirlo libremente, siempre que cualquier versión derivada se mantenga también bajo GPLv3 y de código abierto.
